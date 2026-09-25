@@ -24,6 +24,24 @@ The cutest Discord client mod
 
 Visit https://vencord.dev/download
 
+### Linux / Wayland keybinds in this checkout
+
+The **LinuxKeybinds** plugin replaces Discord's native keyboard and mouse input backend.
+Use Discord's normal **User Settings → Keybinds → Record Keybind** controls; shortcuts also work while Discord is unfocused.
+
+1. Build this checkout with `pnpm build` and fully restart Discord.
+2. Enable **LinuxKeybinds** under **Vencord → Plugins**, then restart when prompted.
+3. Add or record your shortcuts in Discord. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.
+   For **Push to Talk**, select that input mode under **Voice & Video** and record its shortcut normally.
+
+The plugin starts and stops its own Python 3 helper. No compositor configuration or separately launched script is needed.
+It requires read access to `/dev/input/event*`; it does not run `sudo` or change device permissions.
+Existing compositor shortcuts are left unchanged, so choose a combination that does not conflict with them.
+
+The helper can read raw keyboard input. Outside explicit recording, it forwards only keys used by registered shortcuts;
+it does not save key events to disk. If input is lost while a hold shortcut is active, the plugin latches Discord's
+normal mute before releasing the held action. Restore input and unmute manually.
+
 ## Join our Support/Community Server
 
 https://discord.gg/D9uwnFnqmd

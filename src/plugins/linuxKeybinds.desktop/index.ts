@@ -7,15 +7,17 @@
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { type PluginNative } from "@utils/types";
-import { findByPropsLazy } from "@webpack";
+import { findByPropsLazy, waitFor } from "@webpack";
 import { MediaEngineStore, showToast, Toasts } from "@webpack/common";
 
 import { type InputEvent, Keybinds, type KeyOptions, Recorder, type Shortcut } from "./input";
 import type * as NativeModule from "./native";
 
 const Native = VencordNative.pluginHelpers.LinuxKeybinds as PluginNative<typeof NativeModule>;
-const DesktopNative = findByPropsLazy("getDiscordUtils", "inputEventRegister");
-const KeybindActions = findByPropsLazy("addKeybind", "enableAll");
+const inputModules = Promise.all([
+    new Promise<any>(resolve => waitFor(["getDiscordUtils", "inputEventRegister"], resolve)),
+    new Promise<any>(resolve => waitFor(["addKeybind", "enableAll"], resolve))
+]);
 const AudioActions = findByPropsLazy("setTemporarySelfMute", "setSelfMute");
 const logger = new Logger("LinuxKeybinds");
 const keybinds = new Keybinds();
@@ -140,44 +142,52 @@ export default definePlugin({
         if (DiscordNative?.process?.platform !== "linux")
             throw new Error("LinuxKeybinds requires Discord's Linux desktop client");
 
-        const originalRequire = DesktopNative.requireModule;
-        const originalUtils = DesktopNative.getDiscordUtils();
-        const utils = Object.create(originalUtils);
-        Object.defineProperties(utils, {
-            inputEventRegister: { value(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
-                keybinds.register(id, shortcut, callback, options);
-                configure();
-            } },
-            inputEventUnregister: { value(id: number) {
-                keybinds.unregister(id);
-                configure();
-            } },
-            inputCaptureRegisterElement: { value: registerRecorder },
-            inputWatchAll: { value(callback: InputWatcher | null) {
-                watcher = callback;
-                configure();
-            } }
-        });
-
-        // Keep Discord's store, recorder UI and action callbacks. Replace only the
-        // native input backend, and unregister the old backend to avoid double firing.
-        const enabled = keybindsEnabled;
-        KeybindActions.enableAll(false);
-        const requireModule = function (name: string) {
-            return name === "discord_utils" ? utils : originalRequire.call(DesktopNative, name);
-        };
-        DesktopNative.requireModule = requireModule;
-        restoreNative = () => {
-            if (DesktopNative.requireModule === requireModule)
-                DesktopNative.requireModule = originalRequire;
-        };
         running = true;
         const currentGeneration = ++generation;
-        focusChanged();
-        window.addEventListener("focus", focusChanged);
-        window.addEventListener("blur", focusChanged);
-        KeybindActions.enableAll(enabled);
-        Native.start(currentGeneration).then(() => {
+        // WebpackReady does not guarantee these modules have loaded. Continue outside
+        // the module factory so enableAll cannot interrupt an in-progress Flux dispatch.
+        inputModules.then(async ([DesktopNative, KeybindActions]) => {
+            if (!running || generation !== currentGeneration) return;
+
+            const originalRequire = DesktopNative.requireModule;
+            const originalUtils = DesktopNative.getDiscordUtils();
+            const utils = Object.create(originalUtils);
+            Object.defineProperties(utils, {
+                inputEventRegister: { value(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
+                    keybinds.register(id, shortcut, callback, options);
+                    configure();
+                } },
+                inputEventUnregister: { value(id: number) {
+                    keybinds.unregister(id);
+                    configure();
+                } },
+                inputCaptureRegisterElement: { value: registerRecorder },
+                inputWatchAll: { value(callback: InputWatcher | null) {
+                    watcher = callback;
+                    configure();
+                } }
+            });
+
+            // Keep Discord's store, recorder UI and action callbacks. Replace only the
+            // native input backend, and unregister the old backend to avoid double firing.
+            const enabled = keybindsEnabled;
+            KeybindActions.enableAll(false);
+            const requireModule = function (name: string) {
+                return name === "discord_utils" ? utils : originalRequire.call(DesktopNative, name);
+            };
+            DesktopNative.requireModule = requireModule;
+            restoreNative = () => {
+                const enabled = keybindsEnabled;
+                KeybindActions.enableAll(false);
+                if (DesktopNative.requireModule === requireModule)
+                    DesktopNative.requireModule = originalRequire;
+                KeybindActions.enableAll(enabled);
+            };
+            focusChanged();
+            window.addEventListener("focus", focusChanged);
+            window.addEventListener("blur", focusChanged);
+            KeybindActions.enableAll(enabled);
+            await Native.start(currentGeneration);
             if (!running || generation !== currentGeneration) return;
             ready = true;
             configure();
@@ -194,11 +204,8 @@ export default definePlugin({
             for (const unregister of [...unregisterRecorders]) unregister();
             window.removeEventListener("focus", focusChanged);
             window.removeEventListener("blur", focusChanged);
-            const enabled = keybindsEnabled;
-            KeybindActions.enableAll(false);
             restoreNative?.();
             restoreNative = undefined;
-            KeybindActions.enableAll(enabled);
             Native.stop().catch(error => logger.error("Could not stop input helper", error));
         }
     },

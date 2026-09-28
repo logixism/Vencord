@@ -18,6 +18,7 @@ interface Binding {
     keys: number[];
     callback: (down: boolean) => void;
     options: KeyOptions;
+    enabled: boolean;
     matched: boolean;
     active: boolean;
 }
@@ -25,7 +26,7 @@ interface Binding {
 function keyId(device: number, code: number) {
     if (device === 2) device = 0;
     if ((device !== 0 && device !== 1) || !Number.isInteger(code) || code < 0 || code > 0xffff)
-        throw new Error("LinuxKeybinds supports keyboard and mouse shortcuts only");
+        throw new Error("BetterKeybinds supports keyboard and mouse shortcuts only");
     return device * 0x10000 + code;
 }
 
@@ -36,12 +37,12 @@ export class Keybinds {
     private focused = true;
     private capturing = false;
 
-    register(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
+    register(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions, enabled = true) {
         this.unregister(id);
         const keys = shortcut.map(([device, code]) => keyId(device, code));
         if (!keys.length) return;
         this.bindings.set(id, {
-            keys, callback, options,
+            keys, callback, options, enabled,
             matched: keys.every(key => this.pressed.has(key)),
             active: false
         });
@@ -61,7 +62,16 @@ export class Keybinds {
     }
 
     private allowed(binding: Binding) {
-        return !this.capturing && (this.focused ? binding.options.focused !== false : binding.options.blurred !== false);
+        return binding.enabled && !this.capturing && (this.focused ? binding.options.focused !== false : binding.options.blurred !== false);
+    }
+
+    refreshEnabled(isEnabled: (id: number) => boolean) {
+        // Releasing a hold can synchronously change Discord's registrations.
+        for (const [id, binding] of [...this.bindings]) {
+            if (this.bindings.get(id) !== binding) continue;
+            binding.enabled = isEnabled(id);
+            if (!binding.enabled) this.cancel(binding);
+        }
     }
 
     setFocused(focused: boolean) {
@@ -114,6 +124,8 @@ export class Keybinds {
     }
 
     watch(): InputKey[] {
+        // Track disabled shortcuts too: launching a game with a key held must not
+        // synthesize a fresh press or lose the release that clears that held key.
         const keys = new Set<number>();
         for (const binding of this.bindings.values())
             for (const key of binding.keys) keys.add(key);

@@ -1,4 +1,4 @@
-"""Private evdev-to-JSON-lines bridge for the LinuxKeybinds plugin.
+"""Private evdev-to-JSON-lines bridge for the BetterKeybinds plugin.
 
 The renderer owns the process and supplies the only output filter over stdin. This
 module never grabs devices, records input to disk, or sends input over a socket.

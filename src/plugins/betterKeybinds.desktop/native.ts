@@ -48,7 +48,7 @@ function schedule<T>(action: () => Promise<T>): Promise<T> {
 
 function checkSender(event: IpcMainInvokeEvent) {
     if (event.sender.isDestroyed() || event.senderFrame !== event.sender.mainFrame)
-        throw new Error("LinuxKeybinds requires a live main-frame renderer");
+        throw new Error("BetterKeybinds requires a live main-frame renderer");
 }
 
 function validKey(type: unknown, code: unknown): boolean {
@@ -70,7 +70,7 @@ function settleReady(session: Session, error?: Error) {
 
 function callRenderer(session: Session, method: "receive" | "reset" | "failed", argument: string) {
     return session.sender.executeJavaScript(
-        `Vencord.Plugins.plugins.LinuxKeybinds.${method}(${session.generation},${argument})`
+        `Vencord.Plugins.plugins.BetterKeybinds.${method}(${session.generation},${argument})`
     ).then(() => undefined);
 }
 
@@ -203,7 +203,7 @@ function spawnHelper(sender: WebContents, generation: number) {
             if (session.departed) return;
             session.departed = true;
             if (!session.ready) {
-                settleReady(session, new Error("LinuxKeybinds renderer left while starting"));
+                settleReady(session, new Error("BetterKeybinds renderer left while starting"));
                 if (!session.exited) session.child.kill("SIGTERM");
             } else {
                 void schedule(() => shutdown(session));
@@ -258,7 +258,7 @@ async function shutdown(session: Session) {
     session.sender.off("destroyed", session.onDeparture);
     session.sender.off("did-start-navigation", session.onNavigation);
     session.sender.off("render-process-gone", session.onDeparture);
-    if (!session.settled) settleReady(session, new Error("LinuxKeybinds helper stopped while starting"));
+    if (!session.settled) settleReady(session, new Error("BetterKeybinds helper stopped while starting"));
     session.child.stdin.end();
     if (!session.exited) {
         session.child.kill("SIGTERM");
@@ -276,23 +276,23 @@ async function shutdown(session: Session) {
 export async function start(event: IpcMainInvokeEvent, generation: number): Promise<void> {
     return schedule(async () => {
         checkSender(event);
-        if (process.platform !== "linux") throw new Error("LinuxKeybinds requires Linux");
+        if (process.platform !== "linux") throw new Error("BetterKeybinds requires Linux");
         if (!Number.isSafeInteger(generation) || generation < 0)
-            throw new Error("Invalid LinuxKeybinds generation");
+            throw new Error("Invalid BetterKeybinds generation");
         if (active && active.sender !== event.sender)
-            throw new Error("LinuxKeybinds belongs to another renderer");
+            throw new Error("BetterKeybinds belongs to another renderer");
         if (active?.generation === generation) {
             if (active.failureQueued || active.stopping || active.departed)
-                throw new Error("LinuxKeybinds helper is stopping");
+                throw new Error("BetterKeybinds helper is stopping");
             return;
         }
         if (active) await shutdown(active);
-        if (event.sender.isDestroyed()) throw new Error("LinuxKeybinds renderer has been destroyed");
+        if (event.sender.isDestroyed()) throw new Error("BetterKeybinds renderer has been destroyed");
         const { session, ready } = spawnHelper(event.sender, generation);
         try {
             await ready;
             if (session.departed || session.exited || session.failureQueued || event.sender.isDestroyed())
-                throw new Error("LinuxKeybinds helper stopped while starting");
+                throw new Error("BetterKeybinds helper stopped while starting");
         } catch (error) {
             if (session.failureQueued && !session.departed)
                 await session.serial;
@@ -307,12 +307,12 @@ export async function configure(event: IpcMainInvokeEvent, generation: number, w
     if (!Number.isSafeInteger(generation) || generation < 0 || typeof capture !== "boolean"
         || !Array.isArray(watch) || watch.length > MAX_WATCHED_KEYS
         || !watch.every(pair => Array.isArray(pair) && pair.length === 2 && validKey(pair[0], pair[1])))
-        throw new Error("Invalid LinuxKeybinds configuration");
+        throw new Error("Invalid BetterKeybinds configuration");
     await schedule(async () => {
         const session = active;
         if (!session || session.sender !== event.sender || session.generation !== generation
             || !session.ready || session.departed || session.stopping || session.failureQueued)
-            throw new Error("LinuxKeybinds helper is not active for this renderer and generation");
+            throw new Error("BetterKeybinds helper is not active for this renderer and generation");
         try {
             await new Promise<void>((resolve, reject) => {
                 session.child.stdin.write(`${JSON.stringify({ watch, capture })}\n`, error => {

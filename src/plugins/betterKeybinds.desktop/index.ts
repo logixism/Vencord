@@ -4,22 +4,27 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { migratePluginSettings, SettingsStore } from "@api/Settings";
 import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { type PluginNative } from "@utils/types";
-import { findByPropsLazy, waitFor } from "@webpack";
-import { MediaEngineStore, showToast, Toasts } from "@webpack/common";
+import { filters, findByPropsLazy, waitFor } from "@webpack";
+import { MediaEngineStore, RunningGameStore, showToast, Toasts } from "@webpack/common";
 
+import { GameSelector, isBindingEnabled, KeybindGroups, settings } from "./games";
 import { type InputEvent, Keybinds, type KeyOptions, Recorder, type Shortcut } from "./input";
 import type * as NativeModule from "./native";
 
-const Native = VencordNative.pluginHelpers.LinuxKeybinds as PluginNative<typeof NativeModule>;
+const Native = VencordNative.pluginHelpers.BetterKeybinds as PluginNative<typeof NativeModule>;
+const runningGameStoreReady = Promise.withResolvers<typeof RunningGameStore>();
+waitFor(filters.byStoreName("RunningGameStore"), runningGameStoreReady.resolve);
 const inputModules = Promise.all([
     new Promise<any>(resolve => waitFor(["getDiscordUtils", "inputEventRegister"], resolve)),
-    new Promise<any>(resolve => waitFor(["addKeybind", "enableAll"], resolve))
+    new Promise<any>(resolve => waitFor(["addKeybind", "enableAll"], resolve)),
+    runningGameStoreReady.promise
 ]);
 const AudioActions = findByPropsLazy("setTemporarySelfMute", "setSelfMute");
-const logger = new Logger("LinuxKeybinds");
+const logger = new Logger("BetterKeybinds");
 const keybinds = new Keybinds();
 
 type InputWatcher = (device: number, state: number, code: number, deviceId: string) => void;
@@ -36,6 +41,7 @@ let running = false;
 let ready = false;
 let keybindsEnabled = true;
 let configureQueued = false;
+let refreshQueued = false;
 let restoreNative: (() => void) | undefined;
 
 function configure() {
@@ -49,6 +55,18 @@ function configure() {
         const currentGeneration = generation;
         Native.configure(currentGeneration, keybinds.watch(), captures.size > 0 || watcher !== null)
             .catch(error => fail(currentGeneration, String(error)));
+    });
+}
+
+function refreshGameBindings() {
+    if (!running || refreshQueued) return;
+    refreshQueued = true;
+    // Store changes can happen during a Flux dispatch. End held actions outside it.
+    queueMicrotask(() => {
+        refreshQueued = false;
+        if (!running) return;
+        const games = RunningGameStore.getRunningGames();
+        keybinds.refreshEnabled(id => isBindingEnabled(id, games));
     });
 }
 
@@ -72,7 +90,7 @@ function fail(currentGeneration: number, message: string) {
         resetInput();
     } finally {
         logger.error(message);
-        showToast(`LinuxKeybinds: ${message}`, Toasts.Type.FAILURE);
+        showToast(`BetterKeybinds: ${message}`, Toasts.Type.FAILURE);
         Native.stop().catch(error => logger.error("Could not stop input helper", error));
     }
 }
@@ -82,7 +100,7 @@ function registerRecorder(elementId: string, callback: (shortcut: Shortcut) => v
     const start = () => {
         if (active) return;
         if (!ready) {
-            showToast("LinuxKeybinds input helper is not ready. Check the plugin error and restart Discord.", Toasts.Type.FAILURE);
+            showToast("BetterKeybinds input helper is not ready. Check the plugin error and restart Discord.", Toasts.Type.FAILURE);
             return;
         }
         const recorder = new Recorder();
@@ -125,22 +143,50 @@ function focusChanged() {
     }
 }
 
+migratePluginSettings("BetterKeybinds", "LinuxKeybinds");
+
 export default definePlugin({
-    name: "LinuxKeybinds",
-    description: "Fixes recording and global activation of Discord keyboard and mouse keybinds on Linux, including Push to Mute and Push to Talk.",
+    name: "BetterKeybinds",
+    description: "Fixes global keyboard and mouse keybinds on Linux and adds per-game activation to Discord's Keybinds menu.",
     tags: ["Shortcuts", "Voice"],
     authors: [Devs.logix],
     requiresRestart: true,
+    settings,
+
+    patches: [
+        {
+            find: "keybindDescriptions:",
+            replacement: [
+                {
+                    match: /(\(0,\i\.jsx\))\(\i,\{keybind:(\i)\}\)(?=\]\}\)\}\))/,
+                    replace: "$&,$1($self.GameSelector,{keybind:$2})"
+                },
+                {
+                    // Keep Discord's original row renderer, but group the rows instead
+                    // of inserting a divider between every item in one flat list.
+                    match: /(\i)\.map\(\((\i),\i\)=>\(0,\i\.jsxs\)\(\i\.Fragment,\{children:\[((\(0,\i\.jsx\))\(\i,\{keybind:\2,keybindDescriptions:\i,keybindActionTypes:\i\}\)),.{0,150}?\]\},\2\.id\)\)/,
+                    replace: "$4($self.KeybindGroups,{keybinds:$1,renderKeybind:$2=>$3})"
+                }
+            ]
+        }
+    ],
+
+    GameSelector,
+    KeybindGroups,
 
     flux: {
         KEYBINDS_ENABLE_ALL_KEYBINDS({ enable }: { enable: boolean; }) {
             keybindsEnabled = enable;
+        },
+        KEYBINDS_DELETE_KEYBIND({ id }: { id: string; }) {
+            if (settings.store.gameBindings[id])
+                delete settings.store.gameBindings[id];
         }
     },
 
     start() {
         if (DiscordNative?.process?.platform !== "linux")
-            throw new Error("LinuxKeybinds requires Discord's Linux desktop client");
+            throw new Error("BetterKeybinds requires Discord's Linux desktop client");
 
         running = true;
         const currentGeneration = ++generation;
@@ -154,7 +200,7 @@ export default definePlugin({
             const utils = Object.create(originalUtils);
             Object.defineProperties(utils, {
                 inputEventRegister: { value(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
-                    keybinds.register(id, shortcut, callback, options);
+                    keybinds.register(id, shortcut, callback, options, isBindingEnabled(id, RunningGameStore.getRunningGames()));
                     configure();
                 } },
                 inputEventUnregister: { value(id: number) {
@@ -186,6 +232,8 @@ export default definePlugin({
             focusChanged();
             window.addEventListener("focus", focusChanged);
             window.addEventListener("blur", focusChanged);
+            RunningGameStore.addChangeListener(refreshGameBindings);
+            SettingsStore.addChangeListener("plugins.BetterKeybinds.gameBindings", refreshGameBindings);
             KeybindActions.enableAll(enabled);
             await Native.start(currentGeneration);
             if (!running || generation !== currentGeneration) return;
@@ -204,6 +252,8 @@ export default definePlugin({
             for (const unregister of [...unregisterRecorders]) unregister();
             window.removeEventListener("focus", focusChanged);
             window.removeEventListener("blur", focusChanged);
+            RunningGameStore?.removeChangeListener(refreshGameBindings);
+            SettingsStore.removeChangeListener("plugins.BetterKeybinds.gameBindings", refreshGameBindings);
             restoreNative?.();
             restoreNative = undefined;
             Native.stop().catch(error => logger.error("Could not stop input helper", error));

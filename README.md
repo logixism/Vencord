@@ -24,15 +24,25 @@ The cutest Discord client mod
 
 Visit https://vencord.dev/download
 
-### Linux / Wayland keybinds in this checkout
+### BetterKeybinds (Linux / Wayland)
 
-The **LinuxKeybinds** plugin replaces Discord's native keyboard and mouse input backend.
+The **BetterKeybinds** plugin replaces Discord's native keyboard and mouse input backend.
 Use Discord's normal **User Settings → Keybinds → Record Keybind** controls; shortcuts also work while Discord is unfocused.
 
 1. Build this checkout with `pnpm build` and fully restart Discord.
-2. Enable **LinuxKeybinds** under **Vencord → Plugins**, then restart when prompted.
+2. Enable **BetterKeybinds** under **Vencord → Plugins**, then restart when prompted. Existing plugin settings migrate automatically.
 3. Add or record your shortcuts in Discord. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.
    For **Push to Talk**, select that input mode under **Voice & Video** and record its shortcut normally.
+4. Use a keybind's **Group** selector to assign it to a game. That shortcut is active only while the selected game is running,
+   including when the game is unfocused. **Global (all games)** leaves the shortcut unrestricted.
+   Discord's normal enable/disable switch still takes precedence.
+
+Keybinds appear in collapsible **Global** and per-game lists, with counts and game-running status in each header.
+Click a header to show or hide its keybinds. Adding or reassigning a keybind automatically opens its destination group.
+
+The Group selector lists games Discord has detected, including currently running games. If a game is missing, launch it
+and add it under **Registered Games** in Discord. Game restrictions are saved per keybind; closing the selected game
+also releases any active Push to Talk or Push to Mute hold.
 
 The plugin starts and stops its own Python 3 helper. No compositor configuration or separately launched script is needed.
 It requires read access to `/dev/input/event*`; it does not run `sudo` or change device permissions.

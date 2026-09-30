@@ -83,7 +83,7 @@ def capabilities(fd):
 
 
 def physical_keys(fd, keyboard, mouse):
-    pressed = bits(fd, 0x18, KEY_BYTES)  # EVIOCGKEY; seed without emitting input.
+    pressed = bits(fd, 0x18, KEY_BYTES)
     return {
         code for code in range(1, KEY_MAX + 1)
         if has_bit(pressed, code) and (
@@ -92,7 +92,6 @@ def physical_keys(fd, keyboard, mouse):
     }
 
 def drain(fd):
-    # EVIOCGKEY reports the current state, not the state of already queued events.
     while True:
         try:
             if not os.read(fd, EVENT.size * 128):

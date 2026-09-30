@@ -61,7 +61,7 @@ function configure() {
 function refreshGameBindings() {
     if (!running || refreshQueued) return;
     refreshQueued = true;
-    // Store changes can happen during a Flux dispatch. End held actions outside it.
+
     queueMicrotask(() => {
         refreshQueued = false;
         if (!running) return;
@@ -72,7 +72,6 @@ function refreshGameBindings() {
 
 function resetInput() {
     if (keybinds.hasActiveHold) {
-        // Lost input is not a key-up. Latch normal mute before ending PTT/PTM.
         AudioActions.setSelfMute("default", true, false);
         if (!MediaEngineStore.getSettings().mute)
             throw new Error("Discord did not apply the safety mute");
@@ -190,8 +189,7 @@ export default definePlugin({
 
         running = true;
         const currentGeneration = ++generation;
-        // WebpackReady does not guarantee these modules have loaded. Continue outside
-        // the module factory so enableAll cannot interrupt an in-progress Flux dispatch.
+
         inputModules.then(async ([DesktopNative, KeybindActions]) => {
             if (!running || generation !== currentGeneration) return;
 
@@ -199,23 +197,27 @@ export default definePlugin({
             const originalUtils = DesktopNative.getDiscordUtils();
             const utils = Object.create(originalUtils);
             Object.defineProperties(utils, {
-                inputEventRegister: { value(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
-                    keybinds.register(id, shortcut, callback, options, isBindingEnabled(id, RunningGameStore.getRunningGames()));
-                    configure();
-                } },
-                inputEventUnregister: { value(id: number) {
-                    keybinds.unregister(id);
-                    configure();
-                } },
+                inputEventRegister: {
+                    value(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
+                        keybinds.register(id, shortcut, callback, options, isBindingEnabled(id, RunningGameStore.getRunningGames()));
+                        configure();
+                    }
+                },
+                inputEventUnregister: {
+                    value(id: number) {
+                        keybinds.unregister(id);
+                        configure();
+                    }
+                },
                 inputCaptureRegisterElement: { value: registerRecorder },
-                inputWatchAll: { value(callback: InputWatcher | null) {
-                    watcher = callback;
-                    configure();
-                } }
+                inputWatchAll: {
+                    value(callback: InputWatcher | null) {
+                        watcher = callback;
+                        configure();
+                    }
+                }
             });
 
-            // Keep Discord's store, recorder UI and action callbacks. Replace only the
-            // native input backend, and unregister the old backend to avoid double firing.
             const enabled = keybindsEnabled;
             KeybindActions.enableAll(false);
             const requireModule = function (name: string) {

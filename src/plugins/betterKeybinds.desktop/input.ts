@@ -30,7 +30,6 @@ function keyId(device: number, code: number) {
     return device * 0x10000 + code;
 }
 
-/** Matches Discord's registered shortcuts; Discord still owns every action callback. */
 export class Keybinds {
     private bindings = new Map<number, Binding>();
     private pressed = new Set<number>();
@@ -124,26 +123,21 @@ export class Keybinds {
     }
 
     watch(): InputKey[] {
-        // Track disabled shortcuts too: launching a game with a key held must not
-        // synthesize a fresh press or lose the release that clears that held key.
         const keys = new Set<number>();
         for (const binding of this.bindings.values())
             for (const key of binding.keys) keys.add(key);
-        // Releases of unwatched keys are intentionally not sent by the helper.
-        // Forget them now so re-adding a shortcut cannot inherit stale key-downs.
+
         for (const key of this.pressed)
             if (!keys.has(key)) this.pressed.delete(key);
         return [...keys].map(key => [key >>> 16, key & 0xffff]);
     }
 }
 
-/** Mirrors Discord's native recorder: at most four inputs, finishing on release. */
 export class Recorder {
     private keys = new Map<number, Shortcut[number]>();
     private pressed = new Set<number>();
 
     input([device, code, down]: InputEvent): boolean {
-        // The left click that starts/stops recording is not part of the shortcut.
         if (device === 1 && code === 1) return false;
         const id = keyId(device, code);
         if (down) {
@@ -152,6 +146,7 @@ export class Recorder {
         } else {
             this.pressed.delete(id);
         }
+        // discord's key limit is 4, we just match it here
         return this.keys.size >= 4 || (this.keys.size !== 0 && this.pressed.size === 0);
     }
 

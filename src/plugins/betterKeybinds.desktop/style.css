@@ -51,18 +51,14 @@
     position: relative;
     container-name: vc-better-keybinds-row;
     container-type: inline-size;
-
-    /* Match Discord's fixed-popout positioning to the query container. */
     contain: layout;
     min-width: 0;
 }
 
-/* Layout containment creates stacking contexts; let open menus clear other rows. */
 .vc-better-keybinds-row:focus-within {
     z-index: 1;
 }
 
-/* Native rows use subgrid, but a group's card breaks that inheritance chain. */
 .vc-better-keybinds-groups .vc-better-keybinds-row > * {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;

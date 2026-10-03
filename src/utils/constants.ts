@@ -677,6 +677,10 @@ export const Devs = /* #__PURE__*/ Object.freeze({
     logix: {
         name: "logix",
         id: 804066391614423061n
+    },
+    Etorix: {
+        name: "Etorix",
+        id: 94597845868355584n
     }
 } satisfies Record<string, Dev>);
 

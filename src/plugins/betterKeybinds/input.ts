@@ -18,7 +18,6 @@ interface Binding {
     keys: number[];
     callback: (down: boolean) => void;
     options: KeyOptions;
-    enabled: boolean;
     matched: boolean;
     active: boolean;
 }
@@ -36,12 +35,12 @@ export class Keybinds {
     private focused = true;
     private capturing = false;
 
-    register(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions, enabled = true) {
+    register(id: number, shortcut: Shortcut, callback: (down: boolean) => void, options: KeyOptions) {
         this.unregister(id);
         const keys = shortcut.map(([device, code]) => keyId(device, code));
         if (!keys.length) return;
         this.bindings.set(id, {
-            keys, callback, options, enabled,
+            keys, callback, options,
             matched: keys.every(key => this.pressed.has(key)),
             active: false
         });
@@ -61,16 +60,7 @@ export class Keybinds {
     }
 
     private allowed(binding: Binding) {
-        return binding.enabled && !this.capturing && (this.focused ? binding.options.focused !== false : binding.options.blurred !== false);
-    }
-
-    refreshEnabled(isEnabled: (id: number) => boolean) {
-        // Releasing a hold can synchronously change Discord's registrations.
-        for (const [id, binding] of [...this.bindings]) {
-            if (this.bindings.get(id) !== binding) continue;
-            binding.enabled = isEnabled(id);
-            if (!binding.enabled) this.cancel(binding);
-        }
+        return !this.capturing && (this.focused ? binding.options.focused !== false : binding.options.blurred !== false);
     }
 
     setFocused(focused: boolean) {
@@ -106,12 +96,6 @@ export class Keybinds {
                 if (release) binding.callback(false);
             }
         }
-    }
-
-    get hasActiveHold() {
-        for (const binding of this.bindings.values())
-            if (binding.active && binding.options.keydown && binding.options.keyup) return true;
-        return false;
     }
 
     reset() {

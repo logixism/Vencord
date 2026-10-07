@@ -35,28 +35,36 @@ GitHub Actions must be enabled for the fork.
 
 Build with `pnpm build --standalone` to use release-based updates. Source builds made with `pnpm build` continue to use the Git updater.
 
-### BetterKeybinds (Linux / Wayland)
+### BetterKeybinds
 
-The **BetterKeybinds** plugin replaces Discord's native keyboard and mouse input backend.
-Use Discord's normal **User Settings → Keybinds → Record Keybind** controls; shortcuts also work while Discord is unfocused.
+The **BetterKeybinds** plugin adds per-game assignments and collapsible groups to Discord's normal
+**User Settings → Keybinds** controls. It is available on Windows, macOS, Linux, Vesktop, and the browser.
+By default it keeps the client's existing input backend; Linux global-input compatibility is a separate, opt-in feature.
 
-This plugin is only available in Discord's official Linux desktop client. On Windows, macOS, and Vesktop,
-it stays inactive even if enabled settings are synced from Linux, leaving Discord's keybind handling unchanged.
-
-1. Build this checkout with `pnpm build` and fully restart Discord.
-2. Enable **BetterKeybinds** under **Vencord → Plugins**, then restart when prompted. Existing plugin settings migrate automatically.
+1. Build this checkout with `pnpm build` for desktop clients, or `pnpm buildWeb` for the browser, and restart/reload your client.
+2. Enable **BetterKeybinds** under **Vencord → Plugins**, then restart/reload when prompted. Existing plugin settings migrate automatically.
 3. Add or record your shortcuts in Discord. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.
    For **Push to Talk**, select that input mode under **Voice & Video** and record its shortcut normally.
-4. Use a keybind's **Group** selector to assign it to a game. That shortcut is active only while the selected game is running,
-   including when the game is unfocused. **Global (all games)** leaves the shortcut unrestricted.
-   Discord's normal enable/disable switch still takes precedence.
+4. Use a keybind's **Group** selector to assign it to a game. The shortcut is active only while that game is detected.
+   **Global (all games)** leaves it unrestricted. Discord's normal enable/disable controls still take precedence.
 
 Keybinds appear in collapsible **Global** and per-game lists, with counts and game-running status in each header.
 Click a header to show or hide its keybinds. Adding or reassigning a keybind automatically opens its destination group.
 
-The Group selector lists games Discord has detected, including currently running games. If a game is missing, launch it
-and add it under **Registered Games** in Discord. Game restrictions are saved per keybind; closing the selected game
-also releases any active Push to Talk or Push to Mute hold.
+On official Discord, the Group selector uses Discord's detected and registered games. If a game is missing, launch it
+and add it under **Registered Games**. On Vesktop and web clients, it also uses local **Playing** activities supplied
+by Rich Presence, such as arRPC. Without game detection or a local playing activity, game-assigned shortcuts stay inactive.
+
+Browser shortcuts work only while Discord is focused; the plugin does not grant websites system-wide input access.
+Other clients retain their normal background-shortcut support. Assignments are saved per keybind. When a game stops
+or an assignment changes to an inactive game, any active Push to Talk or Push to Mute hold is released.
+Hold shortcuts require a fresh press after becoming available again.
+
+#### Linux input compatibility (optional)
+
+In **BetterKeybinds** settings, enable **Linux input compatibility** and restart to replace Discord's input backend
+with global keyboard and mouse capture, including on Wayland. This option is off by default and available only in
+the official Linux desktop client. Other clients ignore it even when an enabled value is synced from Linux.
 
 The plugin starts and stops its own Python 3 helper. No compositor configuration or separately launched script is needed.
 It requires read access to `/dev/input/event*`; it does not run `sudo` or change device permissions.
@@ -64,7 +72,8 @@ Existing compositor shortcuts are left unchanged, so choose a combination that d
 
 The helper can read raw keyboard input. Outside explicit recording, it forwards only keys used by registered shortcuts;
 it does not save key events to disk. If input is lost while a hold shortcut is active, the plugin latches Discord's
-normal mute before releasing the held action. Restore input and unmute manually.
+normal mute before releasing the held action. If the helper fails, Discord's original input backend is restored
+without disabling per-game assignments. Fix the input/permission problem, restart to retry the helper, and unmute manually.
 
 ## Join our Support/Community Server
 

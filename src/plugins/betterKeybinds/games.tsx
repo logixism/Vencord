@@ -11,11 +11,32 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { ExpandableSection } from "@components/ExpandableCard";
 import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
+import { IS_LINUX } from "@utils/constants";
 import { OptionType } from "@utils/types";
 import type { RunningGame } from "@vencord/discord-types";
+import { findStoreLazy } from "@webpack";
 import { React, RunningGameStore, Select, useStateFromStores } from "@webpack/common";
 
-type Game = Pick<RunningGame, "id" | "exePath" | "name">;
+export type Game = Pick<RunningGame, "id" | "exePath" | "name">;
+
+const LocalActivityStore = findStoreLazy("LocalActivityStore");
+
+export function getGameStores() {
+    return IS_DISCORD_DESKTOP ? [RunningGameStore] : [RunningGameStore, LocalActivityStore];
+}
+
+export function getRunningGames(): readonly Game[] {
+    const running = RunningGameStore.getRunningGames();
+    if (IS_DISCORD_DESKTOP) return running;
+
+    // Vesktop/arRPC report local playing activities rather than native processes.
+    const games: Game[] = [...running];
+    for (const activity of LocalActivityStore.getActivities()) {
+        if (activity.type !== 0 || !activity.application_id || games.some(game => game.id === activity.application_id)) continue;
+        games.push({ id: activity.application_id, name: activity.name, exePath: "" });
+    }
+    return games;
+}
 
 interface Keybind {
     id: string;
@@ -28,6 +49,14 @@ interface KeybindGroup {
 }
 
 export const settings = definePluginSettings({
+    linuxCompatibility: {
+        type: OptionType.BOOLEAN,
+        displayName: "Linux input compatibility",
+        description: "Capture global keyboard and mouse shortcuts on Linux/Wayland. Requires official Discord, Python 3 and read access to /dev/input/event*.",
+        default: false,
+        restartNeeded: true,
+        disabled: !(IS_DISCORD_DESKTOP && IS_LINUX)
+    },
     gameBindings: {
         type: OptionType.CUSTOM,
         description: "Optional game restrictions for Discord keybinds.",
@@ -57,7 +86,7 @@ export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybind
     renderKeybind: (keybind: Keybind) => React.ReactNode;
 }) {
     const { gameBindings } = settings.use(["gameBindings"]);
-    const runningGames = useStateFromStores([RunningGameStore], () => RunningGameStore.getRunningGames());
+    const runningGames = useStateFromStores(getGameStores(), getRunningGames);
     const grouped = new Map<string, KeybindGroup>();
     const assignments = new Map<string, string>();
     for (const keybind of keybinds) {
@@ -104,7 +133,10 @@ export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybind
     return (
         <div className="vc-better-keybinds-groups">
             <Paragraph className="vc-better-keybinds-help">
-                Assign a game on a keybind to move it into that group. Missing a game? Launch it and add it under Registered Games.
+                Assign a game on a keybind to move it into that group.
+                {" "}{IS_DISCORD_DESKTOP
+                    ? "Missing a game? Launch it and add it under Registered Games."
+                    : "Games come from local Rich Presence, such as arRPC. Without game detection, assigned keybinds stay inactive. Browser shortcuts only work while Discord is focused."}
             </Paragraph>
             {groups.map(group => (
                 <ExpandableSection
@@ -137,9 +169,9 @@ export const GameSelector = ErrorBoundary.wrap(function GameSelector({ keybind }
     const { gameBindings } = settings.use(["gameBindings"]);
     const selected = gameBindings[keybind.id];
     const labelId = React.useId();
-    const [seenGames, runningGames] = useStateFromStores([RunningGameStore], () => [
+    const [seenGames, runningGames] = useStateFromStores(getGameStores(), () => [
         RunningGameStore.getGamesSeen(),
-        RunningGameStore.getRunningGames()
+        getRunningGames()
     ] as const);
     const games = new Map<string, Game>();
     for (const game of [...seenGames, ...runningGames]) {

@@ -5,7 +5,7 @@
  */
 
 import { migratePluginSettings, SettingsStore } from "@api/Settings";
-import { Devs } from "@utils/constants";
+import { Devs, IS_LINUX } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { type PluginNative } from "@utils/types";
 import { filters, findByPropsLazy, waitFor } from "@webpack";
@@ -15,14 +15,8 @@ import { GameSelector, isBindingEnabled, KeybindGroups, settings } from "./games
 import { type InputEvent, Keybinds, type KeyOptions, Recorder, type Shortcut } from "./input";
 import type * as NativeModule from "./native";
 
+const isSupported = IS_DISCORD_DESKTOP && IS_LINUX;
 const Native = VencordNative.pluginHelpers.BetterKeybinds as PluginNative<typeof NativeModule>;
-const runningGameStoreReady = Promise.withResolvers<typeof RunningGameStore>();
-waitFor(filters.byStoreName("RunningGameStore"), runningGameStoreReady.resolve);
-const inputModules = Promise.all([
-    new Promise<any>(resolve => waitFor(["getDiscordUtils", "inputEventRegister"], resolve)),
-    new Promise<any>(resolve => waitFor(["addKeybind", "enableAll"], resolve)),
-    runningGameStoreReady.promise
-]);
 const AudioActions = findByPropsLazy("setTemporarySelfMute", "setSelfMute");
 const logger = new Logger("BetterKeybinds");
 const keybinds = new Keybinds();
@@ -142,19 +136,21 @@ function focusChanged() {
     }
 }
 
-migratePluginSettings("BetterKeybinds", "LinuxKeybinds");
+if (isSupported) migratePluginSettings("BetterKeybinds", "LinuxKeybinds");
 
 export default definePlugin({
     name: "BetterKeybinds",
     description: "Fixes global keyboard and mouse keybinds on Linux and adds per-game activation to Discord's Keybinds menu.",
     tags: ["Shortcuts", "Voice"],
     authors: [Devs.logix],
+    hidden: !isSupported,
     requiresRestart: true,
     settings,
 
     patches: [
         {
             find: "keybindDescriptions:",
+            predicate: () => isSupported,
             replacement: [
                 {
                     match: /(\(0,\i\.jsx\))\(\i,\{keybind:(\i)\}\)(?=\]\}\)\}\))/,
@@ -173,7 +169,7 @@ export default definePlugin({
     GameSelector,
     KeybindGroups,
 
-    flux: {
+    flux: isSupported ? {
         KEYBINDS_ENABLE_ALL_KEYBINDS({ enable }: { enable: boolean; }) {
             keybindsEnabled = enable;
         },
@@ -181,16 +177,19 @@ export default definePlugin({
             if (settings.store.gameBindings[id])
                 delete settings.store.gameBindings[id];
         }
-    },
+    } : undefined,
 
     start() {
-        if (DiscordNative?.process?.platform !== "linux")
-            throw new Error("BetterKeybinds requires Discord's Linux desktop client");
+        if (!isSupported) return;
 
         running = true;
         const currentGeneration = ++generation;
 
-        inputModules.then(async ([DesktopNative, KeybindActions]) => {
+        Promise.all([
+            new Promise<any>(resolve => waitFor(["getDiscordUtils", "inputEventRegister"], resolve)),
+            new Promise<any>(resolve => waitFor(["addKeybind", "enableAll"], resolve)),
+            new Promise<typeof RunningGameStore>(resolve => waitFor(filters.byStoreName("RunningGameStore"), resolve))
+        ]).then(async ([DesktopNative, KeybindActions]) => {
             if (!running || generation !== currentGeneration) return;
 
             const originalRequire = DesktopNative.requireModule;
@@ -245,6 +244,7 @@ export default definePlugin({
     },
 
     stop() {
+        if (!running) return;
         try {
             resetInput();
         } finally {

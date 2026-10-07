@@ -40,6 +40,9 @@ Build with `pnpm build --standalone` to use release-based updates. Source builds
 The **BetterKeybinds** plugin replaces Discord's native keyboard and mouse input backend.
 Use Discord's normal **User Settings → Keybinds → Record Keybind** controls; shortcuts also work while Discord is unfocused.
 
+This plugin is only available in Discord's official Linux desktop client. On Windows, macOS, and Vesktop,
+it stays inactive even if enabled settings are synced from Linux, leaving Discord's keybind handling unchanged.
+
 1. Build this checkout with `pnpm build` and fully restart Discord.
 2. Enable **BetterKeybinds** under **Vencord → Plugins**, then restart when prompted. Existing plugin settings migrate automatically.
 3. Add or record your shortcuts in Discord. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.

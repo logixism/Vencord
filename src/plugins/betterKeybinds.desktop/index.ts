@@ -9,7 +9,7 @@ import { Devs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
 import definePlugin, { type PluginNative } from "@utils/types";
 import { filters, findByPropsLazy, waitFor } from "@webpack";
-import { MediaEngineStore, RunningGameStore, showToast, Toasts } from "@webpack/common";
+import { MediaEngineStore, RunningGameStore, showToast } from "@webpack/common";
 
 import { GameSelector, isBindingEnabled, KeybindGroups, settings } from "./games";
 import { type InputEvent, Keybinds, type KeyOptions, Recorder, type Shortcut } from "./input";
@@ -89,7 +89,7 @@ function fail(currentGeneration: number, message: string) {
         resetInput();
     } finally {
         logger.error(message);
-        showToast(`BetterKeybinds: ${message}`, Toasts.Type.FAILURE);
+        showToast(`BetterKeybinds: ${message}`, "failure");
         Native.stop().catch(error => logger.error("Could not stop input helper", error));
     }
 }
@@ -99,7 +99,7 @@ function registerRecorder(elementId: string, callback: (shortcut: Shortcut) => v
     const start = () => {
         if (active) return;
         if (!ready) {
-            showToast("BetterKeybinds input helper is not ready. Check the plugin error and restart Discord.", Toasts.Type.FAILURE);
+            showToast("BetterKeybinds input helper is not ready. Check the plugin error and restart Discord.", "failure");
             return;
         }
         const recorder = new Recorder();

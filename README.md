@@ -22,7 +22,18 @@ The cutest Discord client mod
 
 ## Installing / Uninstalling
 
-Visit https://vencord.dev/download
+For original Vencord, visit https://vencord.dev/download.
+
+### Automatic updates
+
+Desktop standalone builds of this fork update from [this fork's DevBuild release](https://github.com/logixism/Vencord/releases/tag/devbuild),
+not from upstream Vencord. Enable **Vencord → Updater → Automatically update** and restart Discord after an update is installed.
+
+The **Build DevBuild** GitHub Actions workflow publishes updates on matching pushes to `main`.
+It can also be run manually from the Actions tab on `main`; the first successful run creates the release automatically.
+GitHub Actions must be enabled for the fork.
+
+Build with `pnpm build --standalone` to use release-based updates. Source builds made with `pnpm build` continue to use the Git updater.
 
 ### BetterKeybinds (Linux / Wayland)
 

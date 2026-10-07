@@ -1,5 +1,6 @@
 name: Build DevBuild
 on:
+    workflow_dispatch:
     push:
         branches:
             - main
@@ -13,8 +14,16 @@ on:
 env:
     FORCE_COLOR: true
 
+permissions:
+    contents: write
+
+concurrency:
+    group: devbuild
+    cancel-in-progress: false
+
 jobs:
     Build:
+        if: github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
 
         steps:
@@ -50,12 +59,20 @@ jobs:
                   echo "release_tag=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
             - name: Upload DevBuild as release
-              if: github.repository == 'Vendicated/Vencord'
               run: |
-                  gh release upload devbuild --clobber dist/*
-                  gh release edit devbuild --title "DevBuild $RELEASE_TAG"
+                  if gh release view devbuild > /dev/null 2>&1; then
+                      gh release upload devbuild --clobber dist/*
+                      gh release edit devbuild --title "DevBuild $RELEASE_TAG" --latest
+                  else
+                      gh release create devbuild dist/* \
+                          --title "DevBuild $RELEASE_TAG" \
+                          --target "$GITHUB_SHA" \
+                          --notes "Automated Vencord build." \
+                          --latest
+                  fi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GH_REPO: ${{ github.repository }}
                   RELEASE_TAG: ${{ env.release_tag }}
 
             - name: Upload DevBuild to builds repo

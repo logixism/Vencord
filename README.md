@@ -75,6 +75,14 @@ it does not save key events to disk. If input is lost while a hold shortcut is a
 normal mute before releasing the held action. If the helper fails, Discord's original input backend is restored
 without disabling per-game assignments. Fix the input/permission problem, restart to retry the helper, and unmute manually.
 
+### Questify
+
+For quest types with auto-completion enabled under **Questify → Quest Features**, **Complete** enrolls the quest
+and starts or queues Questify's completion countdown instead of opening the normal video or game activity.
+Already-enrolled quests use the same completion flow; **Resume** continues partial progress. Claim rewards
+through Discord once completion is confirmed. Restart Discord after building or updating Questify so its
+button patches are applied.
+
 ## Join our Support/Community Server
 
 https://discord.gg/D9uwnFnqmd

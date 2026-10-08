@@ -378,7 +378,7 @@ export default definePlugin({
                 },
                 {
                     // Overwrite button props for ENROLLED/INCOMPLETE Quests.
-                    match: /(case \i\.\i\.(?:ENROLLED|INCOMPLETE):return)(?=\(0,\i\.jsx\)\(\i,\{quest:(\i),taskType:\i\.type,size:(\i),)/g,
+                    match: /(case \i\.\i\.(?:ENROLLED|INCOMPLETE):return)(?=\(0,\i\.jsx\)\(\i,\{quest:(\i),taskType:\i(?:\.type)?,size:(\i),)/g,
                     replace: "$1 $self.enrolledIncompleteButton({quest:$2,size:$3})||"
                 }
             ]

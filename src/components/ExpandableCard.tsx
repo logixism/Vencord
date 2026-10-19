@@ -15,6 +15,7 @@ import { DownArrow, RightArrow } from "./Icons";
 
 export type ExpandableSectionProps = PropsWithChildren<{
     renderContent: () => React.ReactNode;
+    headerActions?: React.ReactNode;
     className?: string;
     initialExpanded?: boolean;
     expanded?: boolean;
@@ -24,27 +25,36 @@ export type ExpandableSectionProps = PropsWithChildren<{
 /**
  * A card component that can expand and collapse to show/hide content. The header (props.children) is always visible, and the content (props.renderContent) is only visible when expanded.
  */
-export function ExpandableSection({ children, renderContent, className, initialExpanded = false, expanded: controlledExpanded, onExpandedChange }: ExpandableSectionProps) {
+export function ExpandableSection({ children, renderContent, headerActions, className, initialExpanded = false, expanded: controlledExpanded, onExpandedChange }: ExpandableSectionProps) {
     const [localExpanded, setLocalExpanded] = useState(initialExpanded);
     const expanded = controlledExpanded ?? localExpanded;
     const contentId = React.useId();
 
     const Icon = expanded ? DownArrow : RightArrow;
 
+    const header = (
+        <Clickable
+            className="vc-expandable-card-header"
+            aria-expanded={expanded}
+            aria-controls={contentId}
+            onClick={() => {
+                if (controlledExpanded === undefined) setLocalExpanded(!expanded);
+                onExpandedChange?.(!expanded);
+            }}
+        >
+            {children}
+            <Icon className="vc-expandable-card-icon" />
+        </Clickable>
+    );
+
     return (
         <Card data-expanded={expanded} className={classes("vc-expandable-card", className)}>
-            <Clickable
-                className="vc-expandable-card-header"
-                aria-expanded={expanded}
-                aria-controls={contentId}
-                onClick={() => {
-                    if (controlledExpanded === undefined) setLocalExpanded(!expanded);
-                    onExpandedChange?.(!expanded);
-                }}
-            >
-                {children}
-                <Icon className="vc-expandable-card-icon" />
-            </Clickable>
+            {headerActions ? (
+                <div className="vc-expandable-card-heading">
+                    {header}
+                    <div className="vc-expandable-card-actions">{headerActions}</div>
+                </div>
+            ) : header}
 
             <div id={contentId} className="vc-expandable-card-content" hidden={!expanded}>
                 {expanded ? renderContent() : null}

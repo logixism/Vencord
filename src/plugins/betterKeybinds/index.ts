@@ -12,7 +12,7 @@ import type { FluxStore } from "@vencord/discord-types";
 import { filters, findByPropsLazy, waitFor } from "@webpack";
 import { MediaEngineStore, showToast } from "@webpack/common";
 
-import { type Game, GameSelector, getGameStores, getRunningGames, isBindingEnabled, KeybindGroups, settings } from "./games";
+import { type Game, getGameStores, getRunningGames, isBindingEnabled, KeybindGroups, settings } from "./games";
 import { type InputEvent, Keybinds, type KeyOptions, Recorder, type Shortcut } from "./input";
 import type * as NativeModule from "./native";
 
@@ -227,10 +227,6 @@ export default definePlugin({
             find: "keybindDescriptions:",
             replacement: [
                 {
-                    match: /(\(0,\i\.jsx\))\(\i,\{keybind:(\i)\}\)(?=\]\}\)\}\))/,
-                    replace: "$&,$1($self.GameSelector,{keybind:$2})"
-                },
-                {
                     // Keep Discord's original row renderer, but group the rows instead
                     // of inserting a divider between every item in one flat list.
                     match: /(\i)\.map\(\((\i),\i\)=>\(0,\i\.jsxs\)\(\i\.Fragment,\{children:\[((\(0,\i\.jsx\))\(\i,\{keybind:\2,keybindDescriptions:\i,keybindActionTypes:\i\}\)),.{0,150}?\]\},\2\.id\)\)/,
@@ -263,14 +259,14 @@ export default definePlugin({
                     replace: "$&$3=$self.registerKeybind($1,$3,$2);"
                 },
                 {
-                    match: /function \i\((\i)\)\{(?=if\(\i\.isPlatformEmbedded\)\i\.\i\.inputEventUnregister)/,
+                    // Discord releases held actions before unregistering native input.
+                    match: /function \i\((\i)\)\{(?=if\(\i\.isPlatformEmbedded\).{0,300}?\.inputEventUnregister\()/,
                     replace: "$&$self.unregisterKeybind($1);"
                 }
             ]
         }
     ],
 
-    GameSelector,
     KeybindGroups,
     registerKeybind,
     unregisterKeybind,

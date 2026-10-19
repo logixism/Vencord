@@ -2,12 +2,28 @@
     color: var(--text-default);
 }
 
+.vc-expandable-card-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.vc-expandable-card-actions {
+    display: flex;
+    padding: 0.5em 1em;
+}
+
 .vc-expandable-card-header {
     display: flex;
     cursor: pointer;
     padding: .75em 1em;
     margin: 4px;
     border-radius: var(--radius-xs);
+
+    .vc-expandable-card-heading > & {
+        flex: 1;
+        min-width: 0;
+    }
 
     .vc-expandable-card[data-expanded="true"] & {
         background: var(--card-secondary-bg);

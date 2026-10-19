@@ -43,15 +43,21 @@ By default it keeps the client's existing input backend; Linux global-input comp
 
 1. Build this checkout with `pnpm build` for desktop clients, or `pnpm buildWeb` for the browser, and restart/reload your client.
 2. Enable **BetterKeybinds** under **Vencord → Plugins**, then restart/reload when prompted. Existing plugin settings migrate automatically.
-3. Add or record your shortcuts in Discord. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.
+3. Use **Add keybind** on a group's header to create a shortcut directly in that group, or **Add game** to create the first
+   shortcut for another game. For hold-to-mute, choose **Push to Mute** and use **Voice Activity** input mode.
    For **Push to Talk**, select that input mode under **Voice & Video** and record its shortcut normally.
-4. Use a keybind's **Group** selector to assign it to a game. The shortcut is active only while that game is detected.
-   **Global (all games)** leaves it unrestricted. Discord's normal enable/disable controls still take precedence.
+4. Use a keybind's **Move to…** menu to change its game or move it back to **Global**. The shortcut is active only while
+   its game's group shows **Running**.
+   **Not running** groups cannot trigger shortcuts, even if the game remains listed under **Registered Games**.
+   **Global** leaves it unrestricted. Discord's normal enable/disable controls still take precedence.
 
 Keybinds appear in collapsible **Global** and per-game lists, with counts and game-running status in each header.
-Click a header to show or hide its keybinds. Adding or reassigning a keybind automatically opens its destination group.
+Groups start expanded, including stopped games. Click a header to show or hide its keybinds; the separate **Add keybind**
+button works even when collapsed. Adding or moving a keybind opens its destination and focuses the row.
+Discord's built-in action descriptions are preserved; BetterKeybinds adds no instructional tips above the groups.
 
-On official Discord, the Group selector uses Discord's detected and registered games. If a game is missing, launch it
+On official Discord, the game menus use Discord's detected and registered games, plus games saved in existing assignments.
+If a game is missing, launch it
 and add it under **Registered Games**. On Vesktop and web clients, it also uses local **Playing** activities supplied
 by Rich Presence, such as arRPC. Without game detection or a local playing activity, game-assigned shortcuts stay inactive.
 

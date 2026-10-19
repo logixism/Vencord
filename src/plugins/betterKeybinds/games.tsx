@@ -7,19 +7,20 @@
 import "./style.css";
 
 import { definePluginSettings } from "@api/Settings";
+import { Button, TextButton } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { ExpandableSection } from "@components/ExpandableCard";
-import { Heading } from "@components/Heading";
-import { Paragraph } from "@components/Paragraph";
 import { IS_LINUX } from "@utils/constants";
 import { OptionType } from "@utils/types";
 import type { RunningGame } from "@vencord/discord-types";
-import { findStoreLazy } from "@webpack";
-import { React, RunningGameStore, Select, useStateFromStores } from "@webpack/common";
+import { findByPropsLazy, findStoreLazy } from "@webpack";
+import { ContextMenuApi, Menu, React, RunningGameStore, useStateFromStores } from "@webpack/common";
 
 export type Game = Pick<RunningGame, "id" | "exePath" | "name">;
 
 const LocalActivityStore = findStoreLazy("LocalActivityStore");
+const KeybindStore = findStoreLazy("KeybindsStore") as { getUserAgnosticState(): Record<string, Keybind>; };
+const KeybindActions = findByPropsLazy("addKeybind", "enableAll");
 
 export function getGameStores() {
     return IS_DISCORD_DESKTOP ? [RunningGameStore] : [RunningGameStore, LocalActivityStore];
@@ -81,13 +82,79 @@ export function isBindingEnabled(id: number, runningGames: readonly Game[]) {
     return !game || isRunning(game, runningGames);
 }
 
+function assignKeybind(id: string, game?: Game) {
+    if (game) {
+        const { id: gameId, name, exePath } = game;
+        settings.store.gameBindings[id] = { id: gameId, name, exePath };
+    } else {
+        delete settings.store.gameBindings[id];
+    }
+}
+
+function addKeybind(game?: Game): string {
+    const previous = KeybindStore.getUserAgnosticState();
+    KeybindActions.addKeybind({});
+    // Discord assigns the ID and replaces its state synchronously on dispatch.
+    for (const id in KeybindStore.getUserAgnosticState()) {
+        if (id in previous) continue;
+        assignKeybind(id, game);
+        return id;
+    }
+    throw new Error("Discord did not create the keybind");
+}
+
+function GameMenu({ selectedKey, exclude, onSelect }: {
+    selectedKey?: string;
+    exclude?: ReadonlySet<string>;
+    onSelect: (game?: Game) => void;
+}) {
+    const { gameBindings } = settings.use(["gameBindings"]);
+    const [seenGames, runningGames] = useStateFromStores(getGameStores(), () => [
+        RunningGameStore.getGamesSeen(),
+        getRunningGames()
+    ] as const);
+    const games = new Map<string, Game>();
+    // Remember every saved group, including games Discord no longer detects.
+    for (const game of [...Object.values(gameBindings), ...seenGames, ...runningGames]) {
+        if (!game) continue;
+        const key = gameKey(game);
+        if (key && !exclude?.has(key)) games.set(key, game);
+    }
+    const choices = [...games].sort(([, a], [, b]) => a.name.localeCompare(b.name));
+
+    return (
+        <Menu.Menu
+            navId="vc-better-keybinds-games"
+            aria-label={selectedKey === undefined ? "Add game" : "Move keybind to"}
+            onClose={ContextMenuApi.closeContextMenu}
+        >
+            {selectedKey !== undefined && (
+                <>
+                    <Menu.MenuItem id="global" label="Global" disabled={selectedKey === ""} action={() => onSelect()} />
+                    <Menu.MenuSeparator />
+                </>
+            )}
+            {choices.map(([key, game]) => (
+                <Menu.MenuItem
+                    key={key}
+                    id={key}
+                    label={game.name}
+                    disabled={key === selectedKey}
+                    action={() => onSelect(game)}
+                />
+            ))}
+            {!choices.length && <Menu.MenuItem id="no-games" label="No games found" disabled />}
+        </Menu.Menu>
+    );
+}
+
 export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybinds, renderKeybind }: {
     keybinds: Keybind[];
     renderKeybind: (keybind: Keybind) => React.ReactNode;
 }) {
     const { gameBindings } = settings.use(["gameBindings"]);
     const runningGames = useStateFromStores(getGameStores(), getRunningGames);
-    const grouped = new Map<string, KeybindGroup>();
+    const grouped = new Map<string, KeybindGroup>([["", { key: "", keybinds: [] }]]);
     const assignments = new Map<string, string>();
     for (const keybind of keybinds) {
         const game = gameBindings[keybind.id];
@@ -105,9 +172,9 @@ export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybind
         || (a.game?.name ?? "").localeCompare(b.game?.name ?? "")
         || a.key.localeCompare(b.key)
     );
-    const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>(() =>
-        Object.fromEntries(groups.map(group => [group.key, !group.game || isRunning(group.game, runningGames)]))
-    );
+    const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
+    const [pendingFocus, setPendingFocus] = React.useState<string>();
+    const root = React.useRef<HTMLDivElement>(null);
     const previousAssignments = React.useRef(assignments);
 
     // Reveal newly added or reassigned shortcuts, without reopening a group the
@@ -130,23 +197,72 @@ export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybind
         });
     });
 
+    React.useEffect(() => {
+        if (!pendingFocus) return;
+        const row = root.current?.querySelector<HTMLElement>(`[data-keybind-id="${CSS.escape(pendingFocus)}"]`);
+        if (!row) return;
+        const frame = requestAnimationFrame(() => {
+            row.focus({ preventScroll: true });
+            row.scrollIntoView({ block: "nearest" });
+            setPendingFocus(undefined);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [pendingFocus, expandedGroups, keybinds]);
+
+    function addToGroup(game?: Game) {
+        setPendingFocus(addKeybind(game));
+    }
+
     return (
-        <div className="vc-better-keybinds-groups">
-            <Paragraph className="vc-better-keybinds-help">
-                Assign a game on a keybind to move it into that group.
-                {" "}{IS_DISCORD_DESKTOP
-                    ? "Missing a game? Launch it and add it under Registered Games."
-                    : "Games come from local Rich Presence, such as arRPC. Without game detection, assigned keybinds stay inactive. Browser shortcuts only work while Discord is focused."}
-            </Paragraph>
+        <div ref={root} className="vc-better-keybinds-groups">
+            <div className="vc-better-keybinds-toolbar">
+                <Button
+                    size="small"
+                    variant="secondary"
+                    aria-haspopup="menu"
+                    onClick={event => ContextMenuApi.openContextMenu(event, () => (
+                        <GameMenu exclude={new Set(grouped.keys())} onSelect={addToGroup} />
+                    ))}
+                >
+                    Add game
+                </Button>
+            </div>
             {groups.map(group => (
                 <ExpandableSection
                     key={group.key}
                     className="vc-better-keybinds-group"
                     expanded={expandedGroups[group.key] ?? true}
                     onExpandedChange={expanded => setExpandedGroups(current => ({ ...current, [group.key]: expanded }))}
+                    headerActions={(
+                        <Button
+                            size="small"
+                            variant="secondary"
+                            aria-label={`Add keybind to ${group.game?.name ?? "Global"}`}
+                            onClick={() => addToGroup(group.game)}
+                        >
+                            Add keybind
+                        </Button>
+                    )}
                     renderContent={() => group.keybinds.map(keybind => (
-                        <div key={keybind.id} className="vc-better-keybinds-row">
+                        <div key={keybind.id} data-keybind-id={keybind.id} tabIndex={-1} className="vc-better-keybinds-row">
                             {renderKeybind(keybind)}
+                            <div className="vc-better-keybinds-row-actions">
+                                <TextButton
+                                    variant="secondary"
+                                    aria-haspopup="menu"
+                                    onClick={event => ContextMenuApi.openContextMenu(event, () => (
+                                        <GameMenu
+                                            selectedKey={group.key}
+                                            onSelect={game => {
+                                                assignKeybind(keybind.id, game);
+                                                setPendingFocus(keybind.id);
+                                            }}
+                                        />
+                                    ))}
+                                >
+                                    Move to…
+                                </TextButton>
+                            </div>
                         </div>
                     ))}
                 >
@@ -165,50 +281,3 @@ export const KeybindGroups = ErrorBoundary.wrap(function KeybindGroups({ keybind
     );
 }, { message: "Could not render the BetterKeybinds groups." });
 
-export const GameSelector = ErrorBoundary.wrap(function GameSelector({ keybind }: { keybind: Keybind; }) {
-    const { gameBindings } = settings.use(["gameBindings"]);
-    const selected = gameBindings[keybind.id];
-    const labelId = React.useId();
-    const [seenGames, runningGames] = useStateFromStores(getGameStores(), () => [
-        RunningGameStore.getGamesSeen(),
-        getRunningGames()
-    ] as const);
-    const games = new Map<string, Game>();
-    for (const game of [...seenGames, ...runningGames]) {
-        const key = gameKey(game);
-        if (key) games.set(key, game);
-    }
-    // Retain saved choices even if Discord forgets a previously detected game.
-    if (selected && !games.has(gameKey(selected))) games.set(gameKey(selected), selected);
-    const options = [
-        { label: "Global (all games)", value: "" },
-        ...Array.from(games, ([value, game]) => ({ label: game.name, value }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-    ];
-    const selectedKey = selected ? gameKey(selected) : "";
-
-    return (
-        <div className="vc-better-keybinds-assignment">
-            <Heading tag="h5" id={labelId} className="vc-better-keybinds-assignment-label">Group</Heading>
-            <Select
-                className="vc-better-keybinds-assignment-select"
-                aria-labelledby={labelId}
-                options={options}
-                placeholder="Choose a game"
-                maxVisibleItems={5}
-                closeOnSelect
-                select={value => {
-                    const game = games.get(value);
-                    if (game) {
-                        const { id, name, exePath } = game;
-                        settings.store.gameBindings[keybind.id] = { id, name, exePath };
-                    } else {
-                        delete settings.store.gameBindings[keybind.id];
-                    }
-                }}
-                isSelected={value => value === selectedKey}
-                serialize={value => value}
-            />
-        </div>
-    );
-}, { message: "Could not render the BetterKeybinds game selector." });

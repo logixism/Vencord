@@ -89,6 +89,18 @@ Already-enrolled quests use the same completion flow; **Resume** continues parti
 through Discord once completion is confirmed. Restart Discord after building or updating Questify so its
 button patches are applied.
 
+The **Quest Button** settings control the Quests entry above the server list: **Always** shows it even with
+no quests; **Unclaimed** shows it when matching quests are unclaimed or the Quests page is open; **Never**
+hides it. The badge and pill use the configured quest/reward filters and ignored list. Restart after enabling
+Questify so its native server-list component patch is available.
+
+**Quest Notifications** detects new quests from Discord's own refreshes, **Fetch Quests** in the button's
+context menu, and Questify's configured automatic fetch interval. Existing quests establish a silent baseline
+for the current account session, including a successfully fetched empty list. Later discoveries alert once
+per session; repeated refreshes do not repeat the alert. Notifications and sounds are separate controls,
+respect the quest/reward filters and ignored list, and stop on logout or plugin disable. Excluded quests use
+their own notification and sound controls and are fetched separately for filtering.
+
 ## Join our Support/Community Server
 
 https://discord.gg/D9uwnFnqmd

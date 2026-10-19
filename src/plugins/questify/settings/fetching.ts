@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { fetchAndAlertQuests } from "@plugins/questify/utils/fetching";
+import { fetchAndDispatchQuests } from "@plugins/questify/utils/fetching";
 import { QL } from "@plugins/questify/utils/logging";
 import type { Quest } from "@vencord/discord-types";
 
@@ -57,7 +57,7 @@ export function startAutoFetchingQuests(force: boolean = false): void {
 
     const { questFetchInterval } = getQuestifySettings();
     const interval = Math.min(Math.max(questFetchInterval, minimumAutoFetchIntervalValue), maximumAutoFetchIntervalValue);
-    autoFetchInterval = setInterval(() => { void fetchAndAlertQuests("AUTO_FETCH"); }, interval * 1000);
+    autoFetchInterval = setInterval(() => { void fetchAndDispatchQuests(); }, interval * 1000);
     QL.info("START_AUTO_FETCHING_QUESTS", { autoFetchIntervalID: autoFetchInterval, questFetchInterval, questFetchIntervalClamped: interval });
 }
 

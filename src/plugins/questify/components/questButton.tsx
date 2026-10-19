@@ -9,18 +9,18 @@ import { ErrorBoundary } from "@components/index";
 import { getQuestifySettings, useQuestifySettings } from "@plugins/questify/settings/access";
 import type { QuestButtonAction, QuestButtonDisplayMode, QuestButtonIndicatorMode } from "@plugins/questify/settings/def";
 import { getIgnoredQuestIDs, ignoreAllQuests, resetIgnoredQuests } from "@plugins/questify/settings/ignoredQuests";
-import { rerenderQuests } from "@plugins/questify/settings/rerender";
+import { rerenderQuests, useQuestRerender } from "@plugins/questify/settings/rerender";
 import { initialQuestDataFetched } from "@plugins/questify/state";
 import { getActiveAutoCompletes, getQueueableAutoCompleteQuests, isQuestEnrollmentRateLimited, isQueueAllAutoCompleteQuestsInProgress, queueAllAutoCompleteQuests, stopAllAutoCompletes } from "@plugins/questify/utils/completion";
-import { fetchAndAlertQuests } from "@plugins/questify/utils/fetching";
+import { fetchAndDispatchQuests } from "@plugins/questify/utils/fetching";
 import { decimalToRGB, formatLowerBadge, isDarkish, leftClick, middleClick, q, QUEST_PAGE, rightClick } from "@plugins/questify/utils/ui";
-import { findComponentByCodeLazy } from "@webpack";
+import { findComponentByCodeLazy, findExportedComponentLazy } from "@webpack";
 import { ContextMenuApi, Menu, NavigationRouter, useState } from "@webpack/common";
 import type { CSSProperties, JSX, MouseEvent } from "react";
 
 import { openQuestifySettingsModal } from "./settingsModal";
 
-const GuildlessServerListItemComponent = findComponentByCodeLazy("tooltip:", "lowerBadgeSize:");
+const GuildlessServerListItemComponent = findExportedComponentLazy("GuildlessServerListItemComponent");
 const ServerListItemPillComponent = findComponentByCodeLazy("=!1,hovered:", "=!1,unread:", "=!1,disabled:");
 const ServerListItemLowerBadgeComponent = findComponentByCodeLazy("BADGE_NOTIFICATION_BACKGROUND", "let{count:");
 
@@ -117,6 +117,7 @@ function QuestButtonView({
                     </div>
                     <div className={buttonContainerClass}>
                         <GuildlessServerListItemComponent
+                            id={id}
                             icon={() => icon}
                             tooltip="Quests"
                             showPill={false}
@@ -256,7 +257,7 @@ export function QuestButtonContextMenu({ dummy = false }: { dummy?: boolean; }):
             <Menu.MenuItem
                 id={q(`${navId}-fetch-quests`)}
                 label="Fetch Quests"
-                action={() => { void fetchAndAlertQuests("MANUAL_FETCH"); }}
+                action={() => { void fetchAndDispatchQuests(); }}
                 disabled={fetchQuestsDisabled}
             />
         </Menu.Menu>
@@ -264,6 +265,8 @@ export function QuestButtonContextMenu({ dummy = false }: { dummy?: boolean; }):
 }
 
 export function QuestButton(): JSX.Element {
+    useQuestRerender();
+
     const {
         isOnQuestsPage,
         questButtonBadgeColor,

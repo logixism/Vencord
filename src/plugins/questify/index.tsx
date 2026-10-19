@@ -27,14 +27,13 @@ import { getSettingsModalOpen, initialQuestDataFetched, setInitialQuestDataFetch
 import managedStyle from "./styles.css?managed";
 import { playAudio } from "./utils/audio";
 import { canAutoCompleteQuest, getActiveAutoCompletes, getQuestAutoCompleteProgress, getQuestButtonProps, getQuestPanelSubtitleText, hasEnabledAutoCompleteQuestTypes, processQuestForAutoComplete, resumeInterruptedAutoCompletes, setHeartbeatStackTracePatchSucceeded, setVideoProgressStackTracePatchSucceeded, stopAllAutoCompletes, stopAutoCompletesForRunningGames, stopQuestAutoComplete } from "./utils/completion";
-import { canOpenDevToolsWindow, fetchAndDispatchQuests, openDevToolsWindow, snakeToCamel } from "./utils/fetching";
+import { canOpenDevToolsWindow, fetchAndDispatchQuests, handleQuestRefresh, openDevToolsWindow, type QuestRefresh, snakeToCamel, startQuestNotifications, stopQuestNotifications } from "./utils/fetching";
 import { normalizeQuestName } from "./utils/filtering";
 import { notifyQuestCompletion, QL } from "./utils/logging";
 import { getQuestEmbedProgress, getQuestPanelOverride, getQuestPanelPercentComplete, shouldForceQuestPanelVisible } from "./utils/questState";
 import { getLastFilterChoices, getLastSortChoice, getQuestTileClasses, getQuestTileStyle, setLastFilterChoices, setLastSortChoice, shouldPreloadQuestAssets, sortQuests } from "./utils/questTiles";
 import { formatLowerBadge, QUEST_PAGE } from "./utils/ui";
 
-let isSwitchingAccount = false;
 let didAttemptAutoCompleteResume = false;
 const notifiedCompletedQuests = new Set<string>();
 export const enabledOnStartup = PlainSettings.plugins.Questify?.enabled;
@@ -47,6 +46,7 @@ function startPerAccountTasks(source: string): void {
     const startedAt = Date.now();
 
     setOnQuestsPage();
+    startQuestNotifications();
     startAutoFetchingQuests();
     resumeAutoCompletesIfReady();
     fetchAndDispatchQuests();
@@ -58,6 +58,10 @@ function stopPerAccountTasks(source: string, preserveResume: boolean = true): vo
     const stoppedAt = Date.now();
 
     setOnQuestsPage();
+    stopQuestNotifications();
+    setInitialQuestDataFetched(false);
+    didAttemptAutoCompleteResume = false;
+    rerenderQuests();
     stopAutoFetchingQuests();
     notifiedCompletedQuests.clear();
     stopAllAutoCompletes({ manual: false, preserveResume, terminalHeartbeat: true });
@@ -157,7 +161,7 @@ export default definePlugin({
             // Exports the guildless server list item component used by the Quest button.
             find: '="DOWNLOAD_APPS";function',
             replacement: {
-                match: /(?=\i:\(\)=>\i.{0,30000}?asContainer:!\i.{0,50};let (\i)=\i.forwardRef\(function)/,
+                match: /(?=\i:\(\)=>\i.{0,30000}?let (\i)=function\(\i\)\{let\{ref:\i,\.\.\.\i\}=\i,\{id:\i,onClick:)/,
                 replace: "GuildlessServerListItemComponent:()=>$1,"
             }
         },
@@ -583,11 +587,13 @@ export default definePlugin({
     flux: {
         CHANNEL_SELECT() { setOnQuestsPage(); },
 
-        QUESTS_FETCH_CURRENT_QUESTS_SUCCESS(data: { quests: Quest[]; }): void {
+        QUESTS_FETCH_CURRENT_QUESTS_SUCCESS(data: QuestRefresh): Promise<void> {
+            const notifications = handleQuestRefresh(data);
             setInitialQuestDataFetched(true);
             QL.log("QUESTS_FETCH_CURRENT_QUESTS_SUCCESS", data);
             validateIgnoredQuests(data.quests);
             resumeAutoCompletesIfReady();
+            return notifications;
         },
 
         QUESTS_ENROLL_SUCCESS(data: any): void {
@@ -637,25 +643,12 @@ export default definePlugin({
         },
 
         LOGIN_SUCCESS(): void {
-            if (!isSwitchingAccount || getQuestifySettings().disableQuestsEverything) {
-                return;
-            } else {
-                isSwitchingAccount = false;
+            if (!getQuestifySettings().disableQuestsEverything) {
+                startPerAccountTasks("LOGIN_SUCCESS");
             }
-
-            setInitialQuestDataFetched(false);
-            didAttemptAutoCompleteResume = false;
-            startPerAccountTasks("LOGIN_SUCCESS");
         },
 
-        LOGOUT(data: { isSwitchingAccount?: boolean; }): void {
-            if (!data.isSwitchingAccount) {
-                return;
-            } else {
-                isSwitchingAccount = true;
-            }
-
-            setInitialQuestDataFetched(false);
+        LOGOUT(): void {
             stopPerAccountTasks("LOGOUT");
         },
 
@@ -682,6 +675,8 @@ export default definePlugin({
         }
 
         onceReady.then(() => {
+            if (!this.started) return;
+
             showPendingQuestifyNotice();
 
             if (!getQuestifySettings().disableQuestsEverything) {

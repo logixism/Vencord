@@ -80,6 +80,7 @@ The helper can read raw keyboard input. Outside explicit recording, it forwards 
 it does not save key events to disk. If input is lost while a hold shortcut is active, the plugin latches Discord's
 normal mute before releasing the held action. If the helper fails, Discord's original input backend is restored
 without disabling per-game assignments. Fix the input/permission problem, restart to retry the helper, and unmute manually.
+Input-helper failures and attempts to record before the helper is ready show an error toast.
 
 ### Questify
 
@@ -88,6 +89,7 @@ and starts or queues Questify's completion countdown instead of opening the norm
 Already-enrolled quests use the same completion flow; **Resume** continues partial progress. Claim rewards
 through Discord once completion is confirmed. Restart Discord after building or updating Questify so its
 button patches are applied.
+Unavailable auto-completion and enrollment failures show error toasts; rate-limited enrollment is identified explicitly.
 
 The **Quest Button** settings control the Quests entry above the server list: **Always** shows it even with
 no quests; **Unclaimed** shows it when matching quests are unclaimed or the Quests page is open; **Never**

@@ -160,7 +160,7 @@ function fail(currentGeneration: number, message: string) {
     } finally {
         stopLinuxInput();
         logger.error(message);
-        showToast(`BetterKeybinds: ${message}`, "failure");
+        showToast({ text: `BetterKeybinds: ${message}`, variant: "critical" });
     }
 }
 
@@ -169,7 +169,7 @@ function registerRecorder(elementId: string, callback: (shortcut: Shortcut) => v
     const start = () => {
         if (active) return;
         if (!ready) {
-            showToast("BetterKeybinds input helper is not ready. Check the plugin error and restart Discord.", "failure");
+            showToast({ text: "BetterKeybinds input helper is not ready. Check the plugin error and restart Discord.", variant: "critical" });
             return;
         }
         const recorder = new Recorder();

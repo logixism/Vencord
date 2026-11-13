@@ -10,7 +10,7 @@ import { getIgnoredQuestIDs } from "@plugins/questify/settings/ignoredQuests";
 import type { Quest, QuestTaskWatchVideo, QuestTaskWatchVideoOnMobile } from "@vencord/discord-types";
 import { QuestTaskType } from "@vencord/discord-types/enums";
 
-import { getQuestStatus, QuestStatus } from "./questState";
+import { getQuestStatus, isQuestHidden, QuestStatus } from "./questState";
 import { adjustRGB, decimalToRGB, isDarkish, q, type RGB } from "./ui";
 
 type QuestGroupKey = "claimed" | "expired" | "ignored" | "unclaimed" | "unknown";
@@ -198,7 +198,7 @@ function getValidQuestOrder(value: unknown): QuestOrderStatus[] {
     const configuredOrder = Array.isArray(value)
         ? value
         : defaultQuestOrder;
-    const order = configuredOrder.filter((status): status is QuestOrderStatus => validStatuses.has(status as QuestOrderStatus));
+    const order = Array.from(new Set(configuredOrder.filter((status): status is QuestOrderStatus => validStatuses.has(status as QuestOrderStatus))));
 
     for (const status of defaultQuestOrder) {
         if (!order.includes(status)) {
@@ -249,6 +249,8 @@ export function sortQuests(quests: Quest[], skip?: boolean): Quest[] {
         "makeMobileVideoQuestsDesktopCompatible",
         "completeVideoQuestsQuicker",
         "questOrder",
+        "hiddenQuestStatuses",
+        "hideNonAutoCompletableQuests",
         "unclaimedSubsort",
         "claimedSubsort",
         "ignoredSubsort",
@@ -264,11 +266,16 @@ export function sortQuests(quests: Quest[], skip?: boolean): Quest[] {
         injectDesktopVideoQuestTasks(quests);
     }
 
+    const ignoredQuestIds = getIgnoredQuestIDs();
+
+    if (questSorting.hiddenQuestStatuses.length > 0 || questSorting.hideNonAutoCompletableQuests) {
+        quests = quests.filter(quest => !isQuestHidden(quest, ignoredQuestIds));
+    }
+
     if (skip) {
         return quests;
     }
 
-    const ignoredQuestIds = getIgnoredQuestIDs();
     const questGroups: Record<QuestGroupKey, Quest[]> = {
         claimed: [],
         expired: [],

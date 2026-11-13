@@ -66,18 +66,17 @@
 }
 
 /* Quest name color. */
-.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > [class*="eyebrow"] {
+.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > [class*="questName_"] {
     color: var(--questify-quest-name) !important;
 }
 
 /* Reward title + Orbs reward title text color. */
-.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > div[class*="text-md"],
-.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > div[class*="text-md"] > span {
+.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] [class*="header_"] {
     color: var(--questify-reward-title) !important;
 }
 
 /* Quest description text color. */
-.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > div[class*="text-sm"] {
+.questify-quest-item-restyle > div > div[class*="rewardDescriptionContainer"] > div[class*="textContainer"] > div[class*="description_"] {
     color: var(--questify-reward-description) !important;
 }
 
@@ -85,8 +84,8 @@
     background-color: transparent;
 }
 
-/* Promoted by XYZ text color. */
-.questify-quest-item-restyle > div[class*="container"] > div[class*="positionContentOverBackground"] > div[class*="contents"] > div[class*="bottomRow"] > div[class*="text-sm"] {
+/* Sponsor label and expiration text color. */
+.questify-quest-item-restyle :is([class*="promotedByCopy_"], [class*="expirationCopy_"]) {
     color: var(--questify-reward-description) !important;
 }
 

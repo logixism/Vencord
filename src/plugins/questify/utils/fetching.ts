@@ -6,7 +6,7 @@
 
 import { showNotification } from "@api/Notifications";
 import { getCurrentUserId, getQuestifySettings } from "@plugins/questify/settings/access";
-import { questIsIgnored } from "@plugins/questify/settings/ignoredQuests";
+import { getIgnoredQuestIDs, questIsIgnored } from "@plugins/questify/settings/ignoredQuests";
 import { sleep } from "@utils/misc";
 import type { PluginNative } from "@utils/types";
 import type { Quest } from "@vencord/discord-types";
@@ -17,11 +17,10 @@ import { NavigationRouter } from "@webpack/common/utils";
 import { playAudio } from "./audio";
 import { normalizeQuestName, type QuestIncludedTypes, questMatchesIncludedTypes } from "./filtering";
 import { QL } from "./logging";
+import { isQuestHidden } from "./questState";
 import { QUEST_PAGE } from "./ui";
 
 const QuestifyNative = VencordNative?.pluginHelpers?.Questify as PluginNative<typeof import("../native")> | undefined;
-
-type NotifiableQuest = Pick<Quest, "id" | "config">;
 
 export interface QuestRefresh {
     quests: Quest[];
@@ -58,7 +57,7 @@ export const fetchAndDispatchQuests = findByCodeLazy("QUESTS_FETCH_CURRENT_QUEST
 const parseQuestConfig = findByCodeLazy("config).with({config_version:");
 const formatQuestConfig = findByCodeLazy("taskConfigV2:", "config_version:2");
 
-async function fetchQuestById(questId: string): Promise<NotifiableQuest | null> {
+async function fetchQuestById(questId: string): Promise<Quest | null> {
     try {
         const { body } = await RestAPI.get({ url: `/quests/${questId}`, retries: 3 });
         const valid = !!parseQuestConfig({ config: body });
@@ -69,7 +68,13 @@ async function fetchQuestById(questId: string): Promise<NotifiableQuest | null> 
             return null;
         }
 
-        return { id: questId, config: formatQuestConfig(body) };
+        return {
+            id: questId,
+            config: formatQuestConfig(body),
+            preview: body.preview ?? false,
+            userStatus: null,
+            targetedContent: [],
+        };
     } catch (error: unknown) {
         QL.warn("FETCH_QUEST_BY_ID_FAILED", { questId, error });
 
@@ -77,8 +82,8 @@ async function fetchQuestById(questId: string): Promise<NotifiableQuest | null> 
     }
 }
 
-async function fetchExcludedQuestConfigs(questIds: string[], session: QuestNotificationSession): Promise<NotifiableQuest[]> {
-    const quests: NotifiableQuest[] = [];
+async function fetchExcludedQuestConfigs(questIds: string[], session: QuestNotificationSession): Promise<Quest[]> {
+    const quests: Quest[] = [];
 
     for (const [index, questId] of questIds.entries()) {
         if (index > 0) {
@@ -114,7 +119,7 @@ export async function openDevToolsWindow(): Promise<boolean> {
         : false;
 }
 
-function getQuestNotificationText(quests: NotifiableQuest[], excluded: boolean): { title: string; body: string; } {
+function getQuestNotificationText(quests: Quest[], excluded: boolean): { title: string; body: string; } {
     const firstQuest = quests[0];
     const firstQuestName = normalizeQuestName(firstQuest);
 
@@ -135,7 +140,7 @@ function getQuestNotificationText(quests: NotifiableQuest[], excluded: boolean):
     };
 }
 
-function notifyNewQuests(quests: NotifiableQuest[], excluded: boolean): void {
+function notifyNewQuests(quests: Quest[], excluded: boolean): void {
     if (quests.length === 0) return;
 
     const firstQuest = quests[0];
@@ -175,12 +180,15 @@ export function stopQuestNotifications(): void {
     notificationSession = undefined;
 }
 
-function alertNewQuests(quests: NotifiableQuest[], excluded: boolean): void {
+function alertNewQuests(quests: Quest[], excluded: boolean): void {
     const settings = getQuestifySettings();
     if (settings.disableQuestsEverything) return;
 
     const includedTypes = settings.questButtonIncludedTypes as QuestIncludedTypes;
-    const includedQuests = quests.filter(quest => questMatchesIncludedTypes(quest, includedTypes) && !questIsIgnored(quest.id));
+    const ignoredQuestIds = getIgnoredQuestIDs();
+    const includedQuests = quests.filter(quest => questMatchesIncludedTypes(quest, includedTypes)
+        && !ignoredQuestIds.includes(quest.id)
+        && !isQuestHidden(quest, ignoredQuestIds));
     if (includedQuests.length === 0) return;
 
     const sound = excluded ? settings.newExcludedQuestAlertSound : settings.newQuestAlertSound;

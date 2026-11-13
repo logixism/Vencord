@@ -11,7 +11,7 @@ export type QuestIncludedTypes = Record<QuestTaskType | QuestRewardType, boolean
 
 export function questMatchesIncludedTypes(quest: Pick<Quest, "config">, includedTypes: QuestIncludedTypes): boolean {
     const rewardTypeAllowed = quest.config.rewardsConfig.rewards.some(reward => Boolean(includedTypes[reward.type]));
-    const taskTypeAllowed = Object.values(quest.config.taskConfigV2.tasks).some(task => Boolean(includedTypes[task.type]));
+    const taskTypeAllowed = Object.values(quest.config.taskConfigV2.tasks).some(task => Boolean(includedTypes[task.type.toUpperCase() as QuestTaskType]));
 
     return rewardTypeAllowed && taskTypeAllowed;
 }

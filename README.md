@@ -91,17 +91,47 @@ through Discord once completion is confirmed. Restart Discord after building or 
 button patches are applied.
 Unavailable auto-completion and enrollment failures show error toasts; rate-limited enrollment is identified explicitly.
 
+Supported auto-completion types are Watch Video, Watch Video on Mobile, Play on Desktop, Play on Xbox,
+Play on PlayStation, Play Activity, and Achievement in Activity. Game/activity types require the official
+Discord desktop client; Achievement in Activity also requires Questify's native helper. Achievement in Game,
+Play on Desktop V2, streaming, and quests requiring multiple tasks together are not auto-completable.
+Mobile-only enrollment may still require accepting the quest on a mobile device first.
+
+The quest tile context menu offers **Enroll in Quest** and **Launch Activity** where supported.
+The Quest button context menu can process matching quests as a batch, enrolling them before completion.
+Enrollment cooldowns are retained per account; stopping processing or changing accounts cancels pending work.
+
+Automatic enrollment and completion are off by default. To expose their controls, enter
+`up up down down left right left right ba` in **Search Questify Settings**, then acknowledge the
+dangerous-settings warning. Enable the desired automation option and, for completion, the supported quest
+types. Automatic processing runs on successful quest refreshes and respects quest/reward filters, ignored
+quests, and hidden quests. The Quest button context menu can pause each automatic mode independently;
+pausing automatic completion stops its queued/running quests without stopping manually started work.
+Turning off automatic scheduling alone lets already queued work finish.
+
+Quest automation violates Discord's rules and can result in quest restrictions or account penalties.
+The opt-in controls and warnings do not make it undetectable or safe.
+
+**Search Questify Settings** filters and ranks settings cards, including tooltip and option text.
+**Reorder Quests → Status Order → Hidden** hides an entire status group with any sort order.
+**Hide Non Auto-Completable Quests** hides incomplete quests without an enabled, supported task;
+completed, claimed, and expired quests remain visible unless their status group is explicitly hidden.
+These visibility filters also affect badge counts, new-quest alerts, and automatic processing.
+
 The **Quest Button** settings control the Quests entry above the server list: **Always** shows it even with
 no quests; **Unclaimed** shows it when matching quests are unclaimed or the Quests page is open; **Never**
-hides it. The badge and pill use the configured quest/reward filters and ignored list. Restart after enabling
+hides it. The badge and pill use the configured quest/reward filters, ignored list, and visibility settings. Restart after enabling
 Questify so its native server-list component patch is available.
 
 **Quest Notifications** detects new quests from Discord's own refreshes, **Fetch Quests** in the button's
 context menu, and Questify's configured automatic fetch interval. Existing quests establish a silent baseline
 for the current account session, including a successfully fetched empty list. Later discoveries alert once
 per session; repeated refreshes do not repeat the alert. Notifications and sounds are separate controls,
-respect the quest/reward filters and ignored list, and stop on logout or plugin disable. Excluded quests use
-their own notification and sound controls and are fetched separately for filtering.
+respect the quest/reward filters, ignored list, and visibility settings, and stop on logout or plugin disable.
+Excluded quests use their own notification and sound controls and are fetched separately for filtering.
+
+Automation, visibility, settings search, activity actions, and updated completion/Discord patches were
+ported from [Equicord Questify at `5779462`](https://github.com/Equicord/Equicord/tree/577946253e6b62be0740b0ad86969ebc6ffbb2e4/src/equicordplugins/questify).
 
 ## Join our Support/Community Server
 

@@ -6,13 +6,14 @@
 
 import { plugins } from "@api/PluginManager";
 import { ErrorBoundary } from "@components/index";
-import { getQuestifySettings, useQuestifySettings } from "@plugins/questify/settings/access";
+import { useQuestifySettings } from "@plugins/questify/settings/access";
 import type { QuestButtonAction, QuestButtonDisplayMode, QuestButtonIndicatorMode } from "@plugins/questify/settings/def";
 import { getIgnoredQuestIDs, ignoreAllQuests, resetIgnoredQuests } from "@plugins/questify/settings/ignoredQuests";
 import { rerenderQuests, useQuestRerender } from "@plugins/questify/settings/rerender";
 import { initialQuestDataFetched } from "@plugins/questify/state";
-import { getActiveAutoCompletes, getQueueableAutoCompleteQuests, isQuestEnrollmentRateLimited, isQueueAllAutoCompleteQuestsInProgress, queueAllAutoCompleteQuests, stopAllAutoCompletes } from "@plugins/questify/utils/completion";
+import { getActiveAutoCompletes, getQueueableAutoCompleteQuests, isProcessingQuests, isQuestEnrollmentRateLimited, processQuests, stopAllAutoCompletes } from "@plugins/questify/utils/completion";
 import { fetchAndDispatchQuests } from "@plugins/questify/utils/fetching";
+import { QL } from "@plugins/questify/utils/logging";
 import { decimalToRGB, formatLowerBadge, isDarkish, leftClick, middleClick, q, QUEST_PAGE, rightClick } from "@plugins/questify/utils/ui";
 import { findComponentByCodeLazy, findExportedComponentLazy } from "@webpack";
 import { ContextMenuApi, Menu, NavigationRouter, useState } from "@webpack/common";
@@ -192,17 +193,30 @@ function getQuestButtonLowerBadgeProps(
 }
 
 export function QuestButtonContextMenu({ dummy = false }: { dummy?: boolean; }): JSX.Element {
+    useQuestRerender();
+
+    const settings = useQuestifySettings([
+        "questButtonBadgeCount",
+        "autoCompleteQuestsSimultaneously",
+        "usedKonamiCode",
+        "allowChangingDangerousSettings",
+        "autoEnrollQuests",
+        "autoCompleteQuests",
+        "autoEnrollQuestsUnpaused",
+        "autoCompleteQuestsUnpaused",
+    ]);
+
     const navId = q(dummy ? "dummy-quest-button-context-menu" : "quest-button-context-menu");
-    const settings = getQuestifySettings();
     const markAllIgnoredDisabled = dummy || settings.questButtonBadgeCount <= 0;
     const resetIgnoredDisabled = dummy || getIgnoredQuestIDs().length <= 0;
     const noneAutoCompletable = getQueueableAutoCompleteQuests().length <= 0;
     const queueAllQuestsVisible = !settings.autoCompleteQuestsSimultaneously && !noneAutoCompletable;
     const enrollmentRateLimited = isQuestEnrollmentRateLimited();
-    const queueAllQuestsInProgress = isQueueAllAutoCompleteQuestsInProgress();
+    const queueAllQuestsInProgress = isProcessingQuests();
     const queueAllQuestsDisabled = dummy || queueAllQuestsInProgress || enrollmentRateLimited;
     const labelSuffix = (dummy ? "" : queueAllQuestsInProgress ? " (In-Progress)" : enrollmentRateLimited ? " (Rate-Limited)" : "");
     const clearQueueVisible = queueAllQuestsInProgress || getActiveAutoCompletes().length > 0;
+    const automationControlsVisible = settings.usedKonamiCode === true && settings.allowChangingDangerousSettings;
     const fetchQuestsDisabled = dummy;
 
     return (
@@ -228,11 +242,13 @@ export function QuestButtonContextMenu({ dummy = false }: { dummy?: boolean; }):
                     id={q(`${navId}-queue-all-quests`)}
                     label={"Queue All Quests" + labelSuffix}
                     action={() => {
-                        const queueAllPromise = queueAllAutoCompleteQuests();
+                        const queueAllPromise = processQuests(getQueueableAutoCompleteQuests(), { autoComplete: true });
 
                         rerenderQuests();
 
-                        void queueAllPromise.finally(() => {
+                        void queueAllPromise.catch(error => {
+                            QL.error("QUEST_PROCESSING_FAILED", { error });
+                        }).finally(() => {
                             rerenderQuests();
                         });
                     }}
@@ -249,6 +265,30 @@ export function QuestButtonContextMenu({ dummy = false }: { dummy?: boolean; }):
                             preserveResume: false,
                             terminalHeartbeat: true,
                         });
+                        rerenderQuests();
+                    }}
+                    disabled={dummy}
+                />
+            )}
+            {automationControlsVisible && settings.autoEnrollQuests && (
+                <Menu.MenuItem
+                    id={q(`${navId}-pause-auto-enrollment`)}
+                    label={settings.autoEnrollQuestsUnpaused === false ? "Unpause Auto-Enrollment" : "Pause Auto-Enrollment"}
+                    dontCloseOnAction
+                    action={() => {
+                        settings.autoEnrollQuestsUnpaused = settings.autoEnrollQuestsUnpaused === false;
+                        rerenderQuests();
+                    }}
+                    disabled={dummy}
+                />
+            )}
+            {automationControlsVisible && settings.autoCompleteQuests && (
+                <Menu.MenuItem
+                    id={q(`${navId}-pause-auto-processing`)}
+                    label={settings.autoCompleteQuestsUnpaused === false ? "Unpause Auto-Processing" : "Pause Auto-Processing"}
+                    dontCloseOnAction
+                    action={() => {
+                        settings.autoCompleteQuestsUnpaused = settings.autoCompleteQuestsUnpaused === false;
                         rerenderQuests();
                     }}
                     disabled={dummy}

@@ -188,7 +188,7 @@ export default definePlugin({
         },
         {
             // Exports the guildless server list item component used by the Quest button.
-            find: '="DOWNLOAD_APPS";function',
+            find: 'id:"app-download-button"',
             replacement: {
                 match: /(?=\i:\(\)=>\i.{0,30000}?let (\i)=function\(\i\)\{let\{ref:\i,\.\.\.\i\}=\i,\{id:\i,onClick:)/,
                 replace: "GuildlessServerListItemComponent:()=>$1,"

@@ -124,8 +124,8 @@ These visibility filters also affect badge counts, new-quest alerts, and automat
 
 The **Quest Button** settings control the Quests entry above the server list: **Always** shows it even with
 no quests; **Unclaimed** shows it when matching quests are unclaimed or the Quests page is open; **Never**
-hides it. The badge and pill use the configured quest/reward filters, ignored list, and visibility settings. Restart after enabling
-Questify so its native server-list component patch is available.
+hides it. The badge and pill use the configured quest/reward filters, ignored list, and visibility settings.
+Restart after enabling or updating Questify so its native server-list component patch is loaded.
 
 **Quest Notifications** detects new quests from Discord's own refreshes, **Fetch Quests** in the button's
 context menu, and Questify's configured automatic fetch interval. Existing quests establish a silent baseline

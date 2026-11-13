@@ -35,6 +35,10 @@ GitHub Actions must be enabled for the fork.
 
 Build with `pnpm build --standalone` to use release-based updates. Source builds made with `pnpm build` continue to use the Git updater.
 
+**Check for Updates** displays **No updates found!** when the installed build is already current.
+For source installs, recover from a broken updater UI by updating the checkout manually, running
+`pnpm build --dev`, then fully quitting and reopening Discord to load the rebuilt files.
+
 ### BetterKeybinds
 
 The **BetterKeybinds** plugin adds per-game assignments and collapsible groups to Discord's normal

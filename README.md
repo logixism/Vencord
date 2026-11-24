@@ -88,7 +88,9 @@ Input-helper failures and attempts to record before the helper is ready show an 
 
 ### Questify
 
-For quest types with auto-completion enabled under **Questify → Quest Features**, **Complete** enrolls the quest
+Auto-completion is off by default; until it is enabled, quests keep Discord's normal buttons. Under
+**Questify → Quest Features**, click **Allow changing dangerous settings...**, confirm, select types in
+**Auto-complete specific Quest types**, then restart Discord when prompted. For enabled types, **Complete** enrolls the quest
 and starts or queues Questify's completion countdown instead of opening the normal video or game activity.
 Already-enrolled quests use the same completion flow; **Resume** continues partial progress. Claim rewards
 through Discord once completion is confirmed. Restart Discord after building or updating Questify so its
@@ -135,7 +137,8 @@ respect the quest/reward filters, ignored list, and visibility settings, and sto
 Excluded quests use their own notification and sound controls and are fetched separately for filtering.
 
 Automation, visibility, settings search, activity actions, and updated completion/Discord patches were
-ported from [Equicord Questify at `5779462`](https://github.com/Equicord/Equicord/tree/577946253e6b62be0740b0ad86969ebc6ffbb2e4/src/equicordplugins/questify).
+ported from [Equicord Questify at `5779462`](https://github.com/Equicord/Equicord/tree/577946253e6b62be0740b0ad86969ebc6ffbb2e4/src/equicordplugins/questify);
+quest tile patches follow Equicord [`65c35782`](https://github.com/Equicord/Equicord/commit/65c35782e7bb560f3194696dc2067e8aa8a9e469).
 
 ## Join our Support/Community Server
 
